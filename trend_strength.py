@@ -61,5 +61,5 @@ def calc_factor(begin_date: datetime.datetime,
 
 if __name__ == '__main__':
     begin_date = datetime.datetime(2019,1,1)
-    end_date = datetime.datetime(2019,2,10)
+    end_date = datetime.datetime(2019,1,10)
     print(calc_factor(begin_date, end_date))
