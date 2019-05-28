@@ -27,13 +27,14 @@ def calc_factor_by_code(unit: list):
 def calc_factor_mean(unit: list):
     k = unit[0]
     g = unit[1]
-    print(k)
-    n_windows = 2
+    n_windows = unit[2]
     g[str(n_windows) + '_down_volatility'] = g['down_volatility'].fillna(0).rolling(window=n_windows).mean()
     return g[[str(n_windows) + '_down_volatility','code','trade_date']].dropna()
     
 def calc_factor(begin_date: datetime.datetime,
-               end_date: datetime.datetime) -> pd.DataFrame:
+               end_date: datetime.datetime,
+               **kwargs) -> pd.DataFrame:
+    n_windows = kwargs['windows']
     table = Market5MinBar
     conn = sa.create_engine(config.DX_DB)
     #获取分钟K
@@ -53,10 +54,11 @@ def calc_factor(begin_date: datetime.datetime,
     grouped = volatility_res.groupby('code')
     grouped_list = []
     for k, g in grouped:
-        grouped_list.append([k,g])
+        grouped_list.append([k,g,n_windows])
     with multiprocessing.Pool(processes=cpus) as p:
         res = p.map(calc_factor_mean, grouped_list)
-    res = pd.concat(res).reset_index()
+    res = pd.concat(res).reset_index(drop=True)
+    return res
     
     
 if __name__ == '__main__':
