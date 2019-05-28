@@ -31,7 +31,7 @@ def calc_factor(begin_date: datetime.datetime,
     # param for mean in time
     n_windows = 4 
     table = Market5MinBar
-    conn = sa.create_engine('postgresql+psycopg2://alpha:alpha@180.166.26.82:8889/alpha')
+    conn = sa.create_engine(config.DX_DB)
     
     # bars for 5-mins
     query = select([Market5MinBar.trade_date,Market5MinBar.code,Market5MinBar.bar_time,Market5MinBar.close_price,

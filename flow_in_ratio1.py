@@ -33,7 +33,7 @@ def calc_factor(begin_date: datetime.datetime,
                end_date: datetime.datetime) -> pd.DataFrame:
     # param for mean
     n_windows = 4
-    conn = sa.create_engine('postgresql+psycopg2://alpha:alpha@180.166.26.82:8889/alpha')
+    conn = sa.create_engine(config.DX_DB)
     
     # bars for 5-mins
     table = Market5MinBar
