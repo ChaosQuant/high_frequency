@@ -6,12 +6,14 @@ import numpy as np
 import multiprocessing
 import sqlalchemy as sa
 from sqlalchemy import select, and_, func
+from sqlalchemy.pool import NullPool
 from PyFin.api import DateUtilities
+import config
 from models import Market5MinBar,Market
 
 def calc_factor_by_day(trade_date: datetime.datetime) -> pd.DataFrame:
     table = Market5MinBar
-    conn = sa.create_engine(config.DX_DB)
+    conn = sa.create_engine(config.DX_DB, poolclass=NullPool)
     #获取分钟K
     query = select([Market5MinBar.trade_date,Market5MinBar.code,Market5MinBar.bar_time,Market5MinBar.close_price,
                     Market5MinBar.total_volume]).where(and_(Market5MinBar.trade_date==trade_date))
@@ -51,7 +53,8 @@ def calc_factor_by_code(unit: list):
     return g[['bar_time','trade_date','code','ratio']].dropna()
     
 def calc_factor(begin_date: datetime.datetime,
-               end_date: datetime.datetime) -> pd.DataFrame:
+               end_date: datetime.datetime,
+                **kwargs) -> pd.DataFrame:
     trade_date_list = DateUtilities.makeSchedule(begin_date,end_date,'1b','china.sse')
     res = []
     cpus = multiprocessing.cpu_count()
@@ -70,11 +73,8 @@ def calc_factor(begin_date: datetime.datetime,
     cpus = multiprocessing.cpu_count()
     with multiprocessing.Pool(processes=cpus) as p:
         ratio_res = p.map(calc_factor_by_code, grouped_list)
-    res = pd.concat(ratio_res).reset_index()
-    grouped = res.groupby(['bar_time'])
-    for k, g in grouped:
-        #批量写入数据库
-        pass
+    res = pd.concat(ratio_res).reset_index(drop=True)
+    return res
 
 if __name__ == '__main__':
     begin_date = datetime.datetime(2019, 1, 4)
