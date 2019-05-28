@@ -9,6 +9,8 @@ import sqlalchemy as sa
 from sqlalchemy import select, and_, func
 from PyFin.api import DateUtilities
 from models import Market5MinBar,Market
+from dateutil.relativedelta import relativedelta
+import config
 
 def calc_med_factor_by_day(trade_date: datetime.datetime) -> pd.DataFrame:
     ## bar value
@@ -48,12 +50,21 @@ def calc_factor_by_code(params):
     g['flow_in_ratio1'] = g['flow_in'].rolling(window=n_windows).sum()/g['turnoverValue'].rolling(window=n_windows).sum()
     g['flow_in_ratio1'] = g['flow_in_ratio1'].shift(1)
     g['code'] = k
-    return g
+    return g.dropna()
 
 def calc_factor(begin_date: datetime.datetime,
-               end_date: datetime.datetime) -> pd.DataFrame:
-    n_windows = 3
-    trade_date_list = DateUtilities.makeSchedule(begin_date,end_date,'1b','china.sse')
+               end_date: datetime.datetime,
+               **kwargs) -> pd.DataFrame:
+    n_windows = kwargs['windows']
+    #计算交易日 涉及到均值计算，故要获取 begin_date 前n_windows数据
+    interval_day = '-%d'%(n_windows) + 'd'
+    temp_trade_date_list = DateUtilities.makeSchedule(begin_date-relativedelta(days=int(2 * n_windows)), 
+                                                      begin_date,'1b','china.sse')
+    temp_trade_date_list.sort(reverse=False)
+    temp_trade_date_list = temp_trade_date_list[-n_windows:]
+    trade_date_list = DateUtilities.makeSchedule(temp_trade_date_list[0], end_date,'1b','china.sse')
+    
+    
     res = []
     
     cpus = multiprocessing.cpu_count()
