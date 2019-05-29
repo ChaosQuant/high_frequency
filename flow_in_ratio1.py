@@ -1,6 +1,7 @@
 # coding=utf-8
 
 import pdb
+import config
 import datetime
 import pandas as pd
 import numpy as np
@@ -35,7 +36,7 @@ def calc_factor(begin_date: datetime.datetime,
                **kwargs) -> pd.DataFrame:
     # param for mean
     n_windows = kwargs['windows']
-    conn = sa.create_engine('postgresql+psycopg2://alpha:alpha@180.166.26.82:8889/alpha')
+    conn = sa.create_engine(config.DX_DB)
     
     # n_windows more days needed to prevent NaNs during rolling calcaulation
     temp_trade_date_list = DateUtilities.makeSchedule(begin_date-relativedelta(days=int(2 * n_windows)), 
