@@ -39,18 +39,31 @@ class FactorProess(object):
             session.execute(sql_pe, dict_input)
         session.commit()
         session.close()
-        
-    def on_work(self):
-        #获取股票信息
+    
+    
+    def update_stock(self):
+        pdb.set_trace()
         stock_df = DataAPI.EquGet(secID=u"",ticker=u"",equTypeCD=u"A",listStatusCD=u"",field=u"secID,ticker",
                                   pandas="1")
         stock_df = stock_df[:-1]
         stock_df = stock_df.rename(columns={'ticker':'code'})
         stock_df['code'] = stock_df['code'].apply(lambda x : int(x))
+        stock_df.to_csv('stock_info.csv',encoding='UTF-8')
+        
+    def load_stock(self):
+        pdb.set_trace()
+        df = pd.read_csv('stock_info.csv', index_col=0)
+        return df
+    
+    def on_work(self):
+        #获取股票信息
+        stock_df = self.load_stock()
         begin_date = datetime.datetime(2018, 1, 1)
         end_date = datetime.datetime(2018, 1, 10)
         
-        pdb.set_trace()
+        flow_in_ratio1 = flow_in_ratio1_calc_factor(begin_date, end_date, 
+                   windows=3).merge(stock_df, on=['code']).drop(['code'],axis=1).rename(columns={'secID':'code'})
+        self.update_destdb('daily_high_frequency', flow_in_ratio1)
         
         trend_strength = trend_strength_calc_factor(begin_date, end_date, 
                                windows=4).merge(stock_df, on=['code']).drop(['code'],axis=1).rename(columns={'secID':'code'})
@@ -61,9 +74,6 @@ class FactorProess(object):
                                windows=4).merge(stock_df, on=['code']).drop(['code'],axis=1).rename(columns={'secID':'code'})
         self.update_destdb('daily_high_frequency', improved_reversal)
         
-        flow_in_ratio1 = flow_in_ratio1_calc_factor(begin_date, end_date, 
-                   windows=3).merge(stock_df, on=['code']).drop(['code'],axis=1).rename(columns={'secID':'code'})
-        self.update_destdb('daily_high_frequency', flow_in_ratio1)
         
         hf_volatility = hf_volatility_calc_factor(begin_date, end_date, 
                    windows=3).merge(stock_df, on=['code']).drop(['code'],axis=1).rename(columns={'secID':'code'})
@@ -89,4 +99,4 @@ class FactorProess(object):
 if __name__ == '__main__':
     client = uqer.Client(token=config.UQUER_TOKEN)
     factor_proess = FactorProess()
-    factor_proess.on_work()
+    print(factor_proess.load_stock())
