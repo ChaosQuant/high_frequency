@@ -14,6 +14,8 @@ from flow_in_ratio1 import calc_factor as flow_in_ratio1_calc_factor
 from hf_volatility import calc_factor as hf_volatility_calc_factor
 from volume_price_corr import calc_factor as volume_price_corr_calc_factor
 from volume_ratio import calc_factor as volume_ratio_calc_factor
+from improved_reversal import calc_factor as improved_reversal_calc_factor
+from trend_strength import calc_factor as trend_strength_calc_factor
 
 class FactorProess(object):
     
@@ -37,18 +39,42 @@ class FactorProess(object):
             session.execute(sql_pe, dict_input)
         session.commit()
         session.close()
-        
-    def on_work(self):
-        #获取股票信息
+    
+    
+    def update_stock(self):
+        pdb.set_trace()
         stock_df = DataAPI.EquGet(secID=u"",ticker=u"",equTypeCD=u"A",listStatusCD=u"",field=u"secID,ticker",
                                   pandas="1")
         stock_df = stock_df[:-1]
         stock_df = stock_df.rename(columns={'ticker':'code'})
         stock_df['code'] = stock_df['code'].apply(lambda x : int(x))
+        stock_df.to_csv('stock_info.csv',encoding='UTF-8')
+        
+    def load_stock(self):
+        pdb.set_trace()
+        df = pd.read_csv('stock_info.csv', index_col=0)
+        return df
+    
+    def on_work(self):
+        #获取股票信息
+        stock_df = self.load_stock()
         begin_date = datetime.datetime(2018, 1, 1)
         end_date = datetime.datetime(2018, 1, 10)
         
+        flow_in_ratio1 = flow_in_ratio1_calc_factor(begin_date, end_date, 
+                   windows=3).merge(stock_df, on=['code']).drop(['code'],axis=1).rename(columns={'secID':'code'})
+        self.update_destdb('daily_high_frequency', flow_in_ratio1)
+        
+        trend_strength = trend_strength_calc_factor(begin_date, end_date, 
+                               windows=4).merge(stock_df, on=['code']).drop(['code'],axis=1).rename(columns={'secID':'code'})
+        self.update_destdb('daily_high_frequency', trend_strength)
+        
         '''
+        improved_reversal = improved_reversal_calc_factor(begin_date, end_date, 
+                               windows=4).merge(stock_df, on=['code']).drop(['code'],axis=1).rename(columns={'secID':'code'})
+        self.update_destdb('daily_high_frequency', improved_reversal)
+        
+        
         hf_volatility = hf_volatility_calc_factor(begin_date, end_date, 
                    windows=3).merge(stock_df, on=['code']).drop(['code'],axis=1).rename(columns={'secID':'code'})
         self.update_destdb('daily_high_frequency', hf_volatility)
@@ -56,22 +82,21 @@ class FactorProess(object):
         volume_price_corr = volume_price_corr_calc_factor(begin_date, end_date,
                    windows=3).merge(stock_df, on=['code']).drop(['code'],axis=1).rename(columns={'secID':'code'})
         self.update_destdb('daily_high_frequency', volume_price_corr)
-        '''
+       
         volume_ratio = volume_ratio_calc_factor(begin_date, end_date).merge(
             stock_df, on=['code']).drop(['code'],axis=1).rename(columns={'secID':'code'})
-        pdb.set_trace()
         grouped = volume_ratio.groupby(['bar_time'])
-        pdb.set_trace()
         for k, g in grouped:
             new_columns = str(k).replace(':','') + '_volume_ratio'
             g = g.rename(columns={'ratio': new_columns})[['trade_date','code',new_columns]]
             self.update_destdb('daily_high_frequency', g)
+        '''
         print('----->')
         
         
         
 
 if __name__ == '__main__':
-    client = uqer.Client(token='07b082b1f42b91987660f0c2c19097bc3b10fa4b12f6af3274f82df930185f04')
+    client = uqer.Client(token=config.UQUER_TOKEN)
     factor_proess = FactorProess()
-    factor_proess.on_work()
+    print(factor_proess.load_stock())
