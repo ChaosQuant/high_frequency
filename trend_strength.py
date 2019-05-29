@@ -16,7 +16,8 @@ def calc_factor_by_day(unit: list):
     k = unit[0]
     g = unit[1]
     g = g.sort_values(by='bar_time', ascending=True)
-    trend_strength = (g.close_price.iloc[-1]-g.close_price.iloc[0])/g.close_price.diff().fillna(0).map(np.abs).sum()
+    moving = g.close_price.diff().fillna(0).map(np.abs).sum()
+    trend_strength = 0 if moving==0 else (g.close_price.iloc[-1]-g.close_price.iloc[0])/ moving
     return {'trend_strength':trend_strength, 
            'code':k[1],'trade_date':k[0]}
 

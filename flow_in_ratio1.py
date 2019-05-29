@@ -28,6 +28,7 @@ def calc_factor_by_code(unit: list):
     n_windows = unit[2]
     g = g.sort_values(by='trade_date', ascending=True)
     g[str(n_windows)+'_flow_in_ratio1'] = g['flow_in'].rolling(window=n_windows).sum()/g['turnoverValue'].rolling(window=n_windows).sum()
+    g.replace([np.inf, -np.inf], np.nan, inplace=True)
     g[str(n_windows)+'_flow_in_ratio1'] = g[str(n_windows)+'_flow_in_ratio1'].shift(1)
     return g.loc[:,['trade_date','code',str(n_windows)+'_flow_in_ratio1']].dropna()
 
