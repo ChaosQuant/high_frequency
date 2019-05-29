@@ -1,0 +1,77 @@
+# -*- coding: utf-8 -*-
+
+import pdb
+import datetime
+import sqlalchemy as sa
+import pandas as pd
+import uqer
+from uqer import DataAPI
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import select, and_, or_, MetaData, delete,update
+import config
+from models import DailyHighFrequency
+from flow_in_ratio1 import calc_factor as flow_in_ratio1_calc_factor
+from hf_volatility import calc_factor as hf_volatility_calc_factor
+from volume_price_corr import calc_factor as volume_price_corr_calc_factor
+from volume_ratio import calc_factor as volume_ratio_calc_factor
+
+class FactorProess(object):
+    
+    def __init__(self):
+        #目标数据库
+        self._destination = sa.create_engine(config.DK_DB)
+        self._destsession = sessionmaker( bind=self._destination, autocommit=False, autoflush=True)
+    
+    def update_destdb(self, table_name, sets):
+        sets = sets.where(pd.notnull(sets), None)
+        sql_pe = 'INSERT INTO {0} SET'.format(table_name)
+        updates = ",".join( "{0} = :{0}".format(x) for x in list(sets) )
+        sql_pe = sql_pe + '\n' + updates
+        sql_pe = sql_pe + '\n' +  'ON DUPLICATE KEY UPDATE'
+        sql_pe = sql_pe + '\n' + updates
+        session = self._destsession()
+        print('update_destdb')
+        for index, row in sets.iterrows():
+            dict_input = dict( row )
+            dict_input['trade_date'] = dict_input['trade_date'].to_pydatetime()
+            session.execute(sql_pe, dict_input)
+        session.commit()
+        session.close()
+        
+    def on_work(self):
+        #获取股票信息
+        stock_df = DataAPI.EquGet(secID=u"",ticker=u"",equTypeCD=u"A",listStatusCD=u"",field=u"secID,ticker",
+                                  pandas="1")
+        stock_df = stock_df[:-1]
+        stock_df = stock_df.rename(columns={'ticker':'code'})
+        stock_df['code'] = stock_df['code'].apply(lambda x : int(x))
+        begin_date = datetime.datetime(2018, 1, 1)
+        end_date = datetime.datetime(2018, 1, 10)
+        
+        '''
+        hf_volatility = hf_volatility_calc_factor(begin_date, end_date, 
+                   windows=3).merge(stock_df, on=['code']).drop(['code'],axis=1).rename(columns={'secID':'code'})
+        self.update_destdb('daily_high_frequency', hf_volatility)
+        
+        volume_price_corr = volume_price_corr_calc_factor(begin_date, end_date,
+                   windows=3).merge(stock_df, on=['code']).drop(['code'],axis=1).rename(columns={'secID':'code'})
+        self.update_destdb('daily_high_frequency', volume_price_corr)
+        '''
+        volume_ratio = volume_ratio_calc_factor(begin_date, end_date).merge(
+            stock_df, on=['code']).drop(['code'],axis=1).rename(columns={'secID':'code'})
+        pdb.set_trace()
+        grouped = volume_ratio.groupby(['bar_time'])
+        pdb.set_trace()
+        for k, g in grouped:
+            new_columns = str(k).replace(':','') + '_volume_ratio'
+            g = g.rename(columns={'ratio': new_columns})[['trade_date','code',new_columns]]
+            self.update_destdb('daily_high_frequency', g)
+        print('----->')
+        
+        
+        
+
+if __name__ == '__main__':
+    client = uqer.Client(token='07b082b1f42b91987660f0c2c19097bc3b10fa4b12f6af3274f82df930185f04')
+    factor_proess = FactorProess()
+    factor_proess.on_work()
